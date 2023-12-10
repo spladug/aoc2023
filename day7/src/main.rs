@@ -5,6 +5,7 @@ use std::str::FromStr;
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Copy, Clone)]
 enum Card {
+    Joker,
     One,
     Two,
     Three,
@@ -15,7 +16,6 @@ enum Card {
     Eight,
     Nine,
     Ten,
-    Jack,
     Queen,
     King,
     Ace,
@@ -29,7 +29,7 @@ impl FromStr for Card {
             "A" => Ok(Self::Ace),
             "K" => Ok(Self::King),
             "Q" => Ok(Self::Queen),
-            "J" => Ok(Self::Jack),
+            "J" => Ok(Self::Joker),
             "T" => Ok(Self::Ten),
             "9" => Ok(Self::Nine),
             "8" => Ok(Self::Eight),
@@ -80,9 +80,11 @@ impl FromStr for Hand {
 
 impl Hand {
     fn hand_type(&self) -> HandType {
+        // TODO: J is Joker is Wild. Make the best hand using them!
         let mut counts: Vec<usize> = self
             .cards
             .iter()
+            .filter(|&card| *card != Card::Joker)
             .fold(HashMap::with_capacity(5), |mut counter, &card| {
                 counter
                     .entry(card)
@@ -94,13 +96,36 @@ impl Hand {
             .collect();
         counts.sort();
 
+        let joker_count: usize = 5 - counts.iter().sum::<usize>();
         match counts[..] {
+            // QQ 2
+
+            // JJJJJ => []
+            [] => HandType::FiveOfKind,
+            // AAAAA => [A], AAAAJ => [A], AAAJJ => [A], AAJJJ => [A], AJJJJ => [A]
             [_] => HandType::FiveOfKind,
-            [_, x] if x == 4 => HandType::FourOfKind,
-            [_, x] if x == 3 => HandType::FullHouse,
-            [_, _, x] if x == 3 => HandType::ThreeOfKind,
-            [_, _, _] => HandType::TwoPair,
+
+            //
+            [_, x] => {
+                if x + joker_count == 4 {
+                    HandType::FourOfKind
+                } else {
+                    HandType::FullHouse
+                }
+            }
+
+            // [1, 2, 3] 3ok; [11, 2, 3] 3ok; [111, 2, 3] 3ok; [11, 22, 3] 2pair
+            [_, y, x] => {
+                if x != 2 || y != 2 {
+                    HandType::ThreeOfKind
+                } else {
+                    HandType::TwoPair
+                }
+            }
+
             [_, _, _, _] => HandType::OnePair,
+
+            // 12345
             _ => HandType::HighCard,
         }
     }
@@ -133,7 +158,7 @@ impl FromStr for Play {
     type Err = Box<dyn Error>;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        s.split_once(" ")
+        s.split_once(' ')
             .ok_or("couldn't split line".into())
             .and_then(|(hand, bid)| {
                 Ok(Self {
@@ -187,7 +212,7 @@ mod test {
         assert_eq!(Card::from_str("A").unwrap(), Card::Ace);
         assert_eq!(Card::from_str("K").unwrap(), Card::King);
         assert_eq!(Card::from_str("Q").unwrap(), Card::Queen);
-        assert_eq!(Card::from_str("J").unwrap(), Card::Jack);
+        assert_eq!(Card::from_str("J").unwrap(), Card::Joker);
         assert_eq!(Card::from_str("T").unwrap(), Card::Ten);
         assert_eq!(Card::from_str("9").unwrap(), Card::Nine);
         assert_eq!(Card::from_str("8").unwrap(), Card::Eight);
@@ -204,7 +229,7 @@ mod test {
     #[test]
     fn test_ordering_cards() {
         assert!(Card::Ace > Card::King);
-        assert!(Card::Ten < Card::Jack);
+        assert!(Card::Ten < Card::Queen);
         assert!(Card::Two == Card::Two);
     }
 
@@ -259,6 +284,11 @@ mod test {
             "23456".parse::<Hand>().unwrap().hand_type(),
             HandType::HighCard
         );
+
+        assert_eq!(
+            "QJJQ2".parse::<Hand>().unwrap().hand_type(),
+            HandType::FourOfKind
+        );
     }
 
     #[test]
@@ -266,6 +296,7 @@ mod test {
         assert!("11111".parse::<Hand>().unwrap() > "AAAAK".parse::<Hand>().unwrap());
         assert!("33332".parse::<Hand>().unwrap() > "2AAAA".parse::<Hand>().unwrap());
         assert!("77888".parse::<Hand>().unwrap() > "77788".parse::<Hand>().unwrap());
+        assert!("QQQQ2".parse::<Hand>().unwrap() > "JKKK2".parse::<Hand>().unwrap());
     }
 
     #[test]
@@ -291,6 +322,6 @@ QQQJA 483
     #[test]
     fn test_game() {
         let game: Game = TEST_GAME.parse().unwrap();
-        assert_eq!(game.winnings().sum::<u32>(), 6440);
+        assert_eq!(game.winnings().sum::<u32>(), 5905);
     }
 }
