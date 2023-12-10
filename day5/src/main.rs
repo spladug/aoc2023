@@ -1,6 +1,7 @@
 use itertools::Itertools;
 use std::error::Error;
 use std::fs::read_to_string;
+use std::num::ParseIntError;
 use std::str::FromStr;
 use std::vec::Vec;
 
@@ -17,11 +18,8 @@ impl FromStr for Range {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let values: Vec<u32> = s
             .split_whitespace()
-            .map(|n| {
-                n.parse::<u32>()
-                    .map_err(|err| Box::new(err) as Box<dyn Error>)
-            })
-            .collect::<Result<Vec<u32>, Box<dyn Error>>>()?;
+            .map(|n| n.parse::<u32>())
+            .collect::<Result<Vec<u32>, ParseIntError>>()?;
 
         if let [dest_start, source_start, length] = values[..] {
             Ok(Range {
