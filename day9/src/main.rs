@@ -44,6 +44,11 @@ fn main() -> Result<(), Box<dyn Error>> {
         let extrapolation = line_result
             .map_err::<Box<dyn Error>, _>(|err| err.into())
             .and_then(|line| Ok(line.parse::<Sequence>()?))
+            .map(|mut sequence| {
+                // this is for part 2!
+                sequence.readings.reverse();
+                sequence
+            })
             .map(|sequence| extrapolate(&sequence.readings))?;
 
         sum += extrapolation;
@@ -73,5 +78,14 @@ mod test {
 
         let sequence = vec![10, 13, 16, 21, 30, 45];
         assert_eq!(extrapolate(&sequence), 68);
+    }
+
+    #[test]
+    fn test_extrapolate_reverse() {
+        let mut sequence = vec![10, 13, 16, 21, 30, 45];
+        assert_eq!(extrapolate(&sequence), 68);
+
+        sequence.reverse();
+        assert_eq!(extrapolate(&sequence), 5);
     }
 }
