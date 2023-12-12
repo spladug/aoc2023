@@ -1,3 +1,4 @@
+use num_integer::lcm;
 use std::collections::HashMap;
 use std::error::Error;
 use std::fs::read_to_string;
@@ -44,8 +45,8 @@ impl FromStr for Map {
 }
 
 impl Map {
-    fn route_length(&self, route: &str) -> usize {
-        let mut current_node = self.nodes.get("AAA").unwrap();
+    fn route_length(&self, route: &str, start_node: &str) -> usize {
+        let mut current_node = self.nodes.get(start_node).unwrap();
         for (i, c) in route.chars().cycle().enumerate() {
             let next_node = match c {
                 'L' => &current_node.left,
@@ -53,13 +54,26 @@ impl Map {
                 _ => unreachable!(),
             };
 
-            if next_node == "ZZZ" {
+            if next_node.ends_with('Z') {
                 return i + 1;
             }
             current_node = self.nodes.get(next_node).unwrap();
         }
 
         0
+    }
+
+    fn camel_route_length(&self, route: &str) -> usize {
+        self.route_length(route, "AAA")
+    }
+
+    fn ghost_route_length(&self, route: &str) -> usize {
+        self.nodes
+            .keys()
+            .filter(|&k| k.ends_with('A'))
+            .map(|start_node| self.route_length(route, start_node))
+            .reduce(lcm)
+            .expect("no starting nodes found")
     }
 }
 
@@ -69,8 +83,11 @@ fn main() -> Result<(), Box<dyn Error>> {
         .ok_or::<Box<dyn Error>>("couldn't split route from map".into())
         .and_then(|(route, map)| Ok((route.trim().to_owned(), map.parse::<Map>()?)))?;
 
-    let route_length = map.route_length(&route);
-    println!("{route_length}");
+    let camel_route_length = map.camel_route_length(&route);
+    println!("camel: {camel_route_length}");
+
+    let ghost_route_length = map.ghost_route_length(&route);
+    println!("ghost: {ghost_route_length}");
 
     Ok(())
 }
@@ -110,10 +127,27 @@ ZZZ = (ZZZ, ZZZ)
     }
 
     #[test]
-    fn test_follow_route() {
+    fn test_camel_route() {
         let map = TEST_MAP.parse::<Map>().unwrap();
 
-        assert_eq!(map.route_length("LR"), 2);
-        assert_eq!(map.route_length("LLR"), 6);
+        assert_eq!(map.camel_route_length("LR"), 2);
+        assert_eq!(map.camel_route_length("LLR"), 6);
+    }
+
+    const GHOST_MAP: &str = "\
+11A = (11B, XXX)
+11B = (XXX, 11Z)
+11Z = (11B, XXX)
+22A = (22B, XXX)
+22B = (22C, 22C)
+22C = (22Z, 22Z)
+22Z = (22B, 22B)
+XXX = (XXX, XXX)
+";
+
+    #[test]
+    fn test_ghost_route() {
+        let map = GHOST_MAP.parse::<Map>().unwrap();
+        assert_eq!(map.ghost_route_length("LR"), 6);
     }
 }
