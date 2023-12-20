@@ -17,6 +17,7 @@ struct Space {
 }
 
 const EXPANSION_FACTOR: usize = 1;
+// uncomment for day 2: const EXPANSION_FACTOR: usize = 1_000_000 - 1;
 
 impl FromStr for Space {
     type Err = Box<dyn Error>;
